@@ -1,0 +1,22 @@
+.handpointer{
+    cursor: pointer;
+}
+.background-tabs{
+    background: #007BFF !important;
+    color: white !important;
+}
+.heightTable{
+    display:block;
+    height: 500px;
+    overflow-y: scroll;
+    overflow-x: scroll;
+}
+
+.withData{
+    background-color: #FFFFE0;
+    font-size: 11;
+}
+.withNoData{
+    font-size: 11;
+
+}

@@ -1,0 +1,101 @@
+.modal{
+    position: fixed;
+    z-index: 999;
+    top: 1rem;
+    left: 0;
+    width: 101%;
+    height: 100vh;
+    background: linear-gradient(to right, white 3%, rgba(0, 0, 0, 0.549));
+    background: -prefix-linear-gradient(to right, white, rgba(0, 0, 0, 0.549));
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.is-open{
+    display: flex;
+}
+
+.modal-container{
+    position:relative;
+    width: 450px;
+    height: 730px;
+    overflow-y: auto ;
+    background-color: white;
+    padding: 1rem;
+    border-radius: 2%;
+}
+
+.modal-container-mini{
+    position:relative;
+    width: 350px;
+    height: 382px;
+    overflow-y: auto ;
+    background-color: white;
+    padding: 1rem;
+    border-radius: 2%;
+}
+
+.modal-container-grande{
+    position:relative;
+    width: 1000px;
+    height: 682px;
+    overflow-y: auto ;
+    background-color: white;
+    padding: 1rem;
+    border-radius: 2%;
+}
+
+.modal-close{
+    position:absolute;
+    top: 1rem ;
+    right: 1rem;
+}
+
+@media screen and (max-width: 960px) {
+    .modal-container{
+        position:relative;
+        width: 450px;
+        height: 500px;
+        overflow-y: auto ;
+        background-color: white;
+        padding: 1rem;
+        border-radius: 2%;
+    }
+}
+
+@media screen and (max-height: 659px) {
+    .modal-container{
+        position:relative;
+        width: 450px;
+        height: 500px;
+        overflow-y: auto ;
+        background-color: white;
+        padding: 1rem;
+        border-radius: 2%;
+    }
+}
+
+@media (max-width: 700px) {
+    .modal-container{
+        position:relative;
+        width: 450px;
+        height: 500px;
+        overflow-y: auto ;
+        background-color: white;
+        padding: 1rem;
+        border-radius: 2%;
+    }    
+}
+
+@media (max-width: 500px) {
+    .modal-container{
+        position:relative;
+        width: 300px;
+        height: 400px;
+        overflow-y: auto ;
+        background-color: white;
+        padding: 1rem;
+        border-radius: 2%;
+    }
+}

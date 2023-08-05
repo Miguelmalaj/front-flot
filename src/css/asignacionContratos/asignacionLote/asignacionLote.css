@@ -1,0 +1,55 @@
+
+.select-class-1{ /* input para manejar los seleccionables */
+    width: 450px;
+    height: 37px;
+    border-radius: 5px;
+    border: 1px solid gainsboro;
+    font-size: medium;
+    padding: 5px;
+}
+
+.input-number{
+    width: 250px;
+    height: 37px;
+    border-radius: 5px;
+    border: 1px solid gainsboro;
+    font-size: larger;
+    padding: 5px;
+}
+
+h6{
+    box-sizing: border-box;
+    /* background-color: bisque; */
+    height: 37px;
+    padding-top: 10px;
+}
+
+.input-class{ /* Input para manejar las fechas */
+    /* width: 205px; */
+    width: 450px;
+    height: 37px;
+    border-radius: 5px;
+    border: 1px solid gainsboro;
+    /* font-size: larger; */
+    font-size:medium;
+    padding: 5px;
+    
+}
+
+.input-class:focus{
+    outline: 1px solid #80BDFF;
+    box-shadow: 1px 1px 1px 1px #80BDFF;
+    
+}
+
+.bottom-space{
+    margin-bottom: 50px !important;
+}
+
+.display-inline-to-block{
+    display: block;
+}
+
+.margin-left-10{
+    margin-left: 35px;
+}

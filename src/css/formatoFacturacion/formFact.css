@@ -1,0 +1,51 @@
+
+.signLine{
+    border-bottom: 1px solid black;
+    margin-right: 3rem;
+    margin-left: 3rem;
+}
+
+.marginTop3{
+    margin-top: 3rem;
+}
+
+.marginTop8{
+    margin-top: 6rem;
+}
+
+.marginBottom2{
+    margin-bottom: 2px;
+}
+
+.bg-goldenRod{
+    background-color: goldenrod;
+}
+
+.borderTop{
+    border-top: 1px solid gray;
+}
+.borderBottom{
+    border-bottom: 1px solid gray;
+}
+.borderRight{
+    border-right: 1px solid gray;
+}
+.borderLeft{
+    border-left: 1px solid gray;
+}
+.noMargin{
+    margin: 0;
+}
+
+.marginLeftSheet{
+    margin-left: 113.38px;
+}
+.marginRightSheet{
+    margin-right: 113.38px;/* 2rem; */
+}
+.marginTopSheet{
+    margin-top: 94.48px;/* 2rem; */
+}
+.marginBottomSheet{
+    margin-bottom: 94.48px;
+}
