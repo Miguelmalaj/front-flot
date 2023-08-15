@@ -12,6 +12,7 @@ import { axiosPostService } from '../../../services/asignacionLoteService/Asigna
 import { validarFecha, isDefaultDate } from '../../../helpers/fecha'
 import { pipesStatusPrevia } from '../../../helpers/estatusPrevia';
 import { upperCase } from '../../../helpers/converToUpperCase';
+import { CartaCliente } from '../helpers/constantes';
 
 let url = '';
 const emptyString = ""
@@ -156,12 +157,13 @@ const ResumenFinal = ({ agencia, clientes }) => {
         }
     }
 
-    const downloadPDF = async ( VIN ) => {
+    const downloadPDF = async ( PDF, VIN ) => {
         url = ApiUrl + "api/asignarvins/send_pdf"
-        let body = {VIN, agencia}
+        let body = {VIN, agencia, PDF}
         await axios.post(url, body, {responseType:'blob'})
         .then(response => {
             const fileUrl = window.URL.createObjectURL(response['data']);
+
             window.open(fileUrl, '_blank');
         })
         .catch(err => {
@@ -482,7 +484,7 @@ const ResumenFinal = ({ agencia, clientes }) => {
                                     title='Visualizar Carta Cliente'
                                     type='button'
                                     className='btn btn-outline-danger'
-                                    onClick={() => downloadPDF(registro.VIN)}
+                                    onClick={() => downloadPDF(CartaCliente, registro.VIN)}
                                 ><FontAwesomeIcon icon={faFilePdf}/></button> 
                                 : 
                                 ""

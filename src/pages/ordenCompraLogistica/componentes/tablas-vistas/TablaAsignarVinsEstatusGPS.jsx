@@ -35,6 +35,10 @@ class TablaAsignarVinsEstatusGPSClass extends Component {
     return status.toString().split("|").shift();
   }
 
+  validPatio( patio ){
+    return patio.toString().split("|").shift();
+  }
+
   showPDF( PDF ) {
     const file = window.URL.createObjectURL(PDF);
     window.open(file, '_blank');
@@ -68,7 +72,7 @@ class TablaAsignarVinsEstatusGPSClass extends Component {
               <th colSpan='15' className='text-center divider__border-right'>GENERALES</th>
               <th colSpan='19' className='text-center divider__border-right'>GM</th>
               <th colSpan='4' className='text-center divider__border-right'>GMF</th>
-              <th colSpan='14' className='text-center divider__border-right'>TYT</th>
+              <th colSpan='15' className='text-center divider__border-right'>TYT</th>
               <th colSpan='1' className='text-center divider__border-right'>GMF</th>
               <th colSpan='5' className='text-center divider__border-right'>PREVIA ENTREGA DISTRIB.</th>
               <th colSpan='4' className='text-center divider__border-right'>DOCUMENTOS DE ENTREGA</th>
@@ -93,7 +97,7 @@ class TablaAsignarVinsEstatusGPSClass extends Component {
               <th colSpan="1" className='text-center divider__border-right'>TIEMPO</th>
               <th colSpan="2" className='text-center divider__border-right'>DPP</th>
               <th colSpan="2" className='text-center divider__border-right'>PERMISO</th>
-              <th colSpan="3" className='text-center divider__border-right'></th>
+              <th colSpan="4" className='text-center divider__border-right'></th>
               <th colSpan="2" className='text-center divider__border-right'>INTERPLANTA</th>
               <th colSpan="2" className='text-center divider__border-right'>ARMADO DE VIAJE</th>
               <th colSpan="2" className='text-center divider__border-right'>ASIG. SIN MADRINA</th>
@@ -138,7 +142,7 @@ class TablaAsignarVinsEstatusGPSClass extends Component {
 
               <th className='noselect divider__border-right' style={{ backgroundColor:'DarkSeaGreen' }}>Dias</th>
 
-              <th className='noselect divider__border-right' style={{position:'sticky', left:'130px', backgroundColor:'green', zIndex:1}}>
+              <th className='noselect divider__border-right' style={{position:'sticky', left:'130px', backgroundColor:'#1565C0', zIndex:1}}>
                   Destino
               </th>
 
@@ -203,6 +207,8 @@ class TablaAsignarVinsEstatusGPSClass extends Component {
               {/* TYT */}
 
               <th className='noselect divider__border-right' style={{position:'sticky', left:'195px', backgroundColor:'#1565C0', zIndex:1}}>Estatus TyT</th>
+
+              <th className='noselect divider__border-right'>Patio</th>
 
               <th className='noselect divider__border-right'>Observaciones TyT</th>
 
@@ -374,6 +380,8 @@ class TablaAsignarVinsEstatusGPSClass extends Component {
                             { upperCase( this.validDefaultStatusTyT(registro.EstatusTyT) ) }
                           </td>
 
+                          <td className='noselect'>{ upperCase( this.validPatio(registro.Patio) )}</td> {/* aplicar validación */}
+
                           <td className='noselect'>{ upperCase( registro.ObservacionesTyT ) }</td>
 
                           <td className='noselect'>{ validarFecha(isDefaultDate(registro.FechaEstatusTyT)) }</td>
@@ -519,7 +527,7 @@ export const TablaAsignarVinsEstatusGPS = ({
 
       await updateVinsWithStatus( obj, LoggedUser );
 
-      await updateVinsWityStatusFactura( obj );
+      await updateVinsWithStatusFactura( obj );
       
       await createSinisterLog( obj );
 
@@ -548,6 +556,7 @@ export const TablaAsignarVinsEstatusGPS = ({
       EstatusGPS           : obj.EstatusGPS,
       EstatusPrevia        : obj.EstatusPrevia,
       EstatusTyT           : obj.EstatusTyT, 
+      Patio                : obj.Patio,
       FechaEntregaCliente  : obj.FechaEntregaCliente,
       FechaDeEnvioDocum    : obj.FechaDeEnvioDocum,
       FechaDeRecepcion     : obj.FechaDeRecepcion,
@@ -605,7 +614,7 @@ export const TablaAsignarVinsEstatusGPS = ({
 
   }
 
-  const updateVinsWityStatusFactura = async ( obj ) => {
+  const updateVinsWithStatusFactura = async ( obj ) => {
 
     url = ApiUrl + "api/asignarvins/update_vins_with_status_recibo_factura";
 

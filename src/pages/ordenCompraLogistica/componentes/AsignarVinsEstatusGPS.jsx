@@ -4,7 +4,7 @@ import { generate as id } from 'shortid'
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilePdf, faAdd } from '@fortawesome/free-solid-svg-icons';
+import { faFilePdf, faAdd, faFileExcel } from '@fortawesome/free-solid-svg-icons';
 import swal from 'sweetalert';
 
 import { useModal } from '../../../modales/shared/useModal';
@@ -18,6 +18,9 @@ import { FechaDeHoyYYMMDD, isDefaultDate, reduceString, validarFecha } from '../
 import { TablaAsignarVinsEstatusGPS } from './tablas-vistas/TablaAsignarVinsEstatusGPS';
 import { upperCase } from '../../../helpers/converToUpperCase';
 import { statusGPSDataTable, ordenDeCompraDataTable } from '../../../components/datatable/conf';
+import { Button } from '@mui/material';
+import readXlsxFile from 'read-excel-file';
+
 import $ from 'jquery';
 import '../../../css/ordenDeCompra/ordenDeCompra.css';
 import { 
@@ -29,6 +32,7 @@ import {
     defaultEstatusPrevia, 
     OK, 
     PATIOSTATUSTYT, 
+    UBICACIONPATIO,
     PATIO, 
     DISTRIBUIDOR, 
     SINPREVIA, 
@@ -44,8 +48,16 @@ import {
     estatusKeysTyTList, 
     pendientesEntrega, 
     especificDate,
-    stylesObjects 
+    stylesObjects, 
+    EstatusTyTvalidations,
+    PatioUbiValidations
 } from '../helpers/constantes';
+
+/* libraries to import excel */
+import '@grapecity/spread-sheets-react'
+// import '@grapecity/spread-sheets-react/styles/gc.spread.sheets.excel2016colorful.css'
+// import { SpreadSheets, Worksheet, Column } from '@grapecity/spread-sheets-react';
+import { IO } from '@grapecity/spread-excelio';
 
 const { 
     HeaderClientSticky, 
@@ -74,6 +86,7 @@ const {
     BodyEstatusTyT
 } = stylesObjects;
 
+
 const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
     const [writtendata, setWrittendata] = useState({
@@ -85,6 +98,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
         EstatusGPS          : defaultEstatusGPS,
         EstatusPrevia       : defaultEstatusPrevia,
         EstatusTyT          : PATIOSTATUSTYT,
+        Patio               : UBICACIONPATIO, /* new property added */
         FechaEntregaCliente : defaultDate,
         FechaDeEnvioDocum   : defaultDate,
         FechaDeRecepcion    : defaultDate,
@@ -130,6 +144,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
     const [VINClientesGenerados, setVINClientesGenerados]              = useState([]);
     const [VINSGeneratedinBD, setVINSGeneratedinBD]                    = useState(false);
     const [statusTytCatList, setStatusTytCatList]                      = useState([]);
+    const [patiosUbiCatList, setPatiosUbiCatList]                      = useState([]);
     const [OrdenCompra, setOrdenCompra]                                = useState('');
     const [ordenesDeCompra, setOrdenesDeCompra]                        = useState([]);
     const [radioButton, setRadioButton]                                = useState(Asignar);
@@ -139,6 +154,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
     const [isOpenModal, openModal, closeModal]                         = useModal(false);
     const [isOpenModalEntregas, openModalEntregas, closeModalEntregas] = useModal(false);
     const [isChargingVins, setIsChargingVins]                          = useState(false);
+    const [isImportExcelActive, setIsImportExcelActive] = useState( false );
 
     /* new state */
     const [sliceSelected, setSliceSelected] = useState( slices.first );
@@ -149,10 +165,12 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
     const selectEstatusGPSRef      = useRef();
     const selectEstatusPreviaRef   = useRef();
     const selectEstatusTyTRef      = useRef();
+    const selectPatioUbiRef        = useRef();
     const selectClientsRef         = useRef();
     const selectOrderRef           = useRef();
     const checkBoxSelectedAll      = useRef();
     const selectPagoRef            = useRef();
+    const inputFileImportExcel     = useRef();
 
     let url = '';
     const fechaHoy = FechaDeHoyYYMMDD();
@@ -173,7 +191,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
         }
           
-        getStatusTyTList()
+        getStatusTyTAndPatiosList( true )
 
     }, [clientes]);
 
@@ -198,9 +216,11 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
         const { first, third } = slices;
 
-        const { EstatusTyT, EstatusGPS, EstatusPrevia, Pago, CartaClientePDF, FacturaPagoPDF } = writtendata;
+        const { EstatusTyT, Patio, EstatusGPS, EstatusPrevia, Pago, CartaClientePDF, FacturaPagoPDF } = writtendata;
 
         if ( sliceSelected ===  first ) {
+
+            selectPatioUbiRef.current.value      = Patio;
 
             selectEstatusTyTRef.current.value    = EstatusTyT;
 
@@ -239,14 +259,31 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
     }
 
-    const getStatusTyTList = async () => {
+    const getStatusTyTAndPatiosList = async ( patios = false ) => {
 
         url = ApiUrl + "api/asignarvins/get_statustyt_catalogo";
         let total_statusTyT = await axiosPostService( url, {agencia} );
-
         setStatusTytCatList( total_statusTyT );
 
-        if ( total_statusTyT.length > 0 ) setWrittendata({...writtendata, EstatusTyT: `${total_statusTyT[0].nombreEstatus}|${total_statusTyT[0].clave}`})
+        let patios_ubicaciones = [];
+
+        if ( patios ) {
+            
+            url = ApiUrl + "api/asignarvins/get_patios_ubicaciones";
+            patios_ubicaciones = await axiosPostService( url, {agencia});
+            setPatiosUbiCatList( patios_ubicaciones );
+
+        }
+
+        if ( total_statusTyT.length > 0 ) {
+
+            setWrittendata({
+                ...writtendata, 
+                EstatusTyT : `${total_statusTyT[0].nombreEstatus}|${total_statusTyT[0].clave}`,
+                Patio      : patios ? `${patios_ubicaciones[0].nombrePatio}|${patios_ubicaciones[0].clave}` : writtendata.Patio,
+            });
+
+        }
     
     }
 
@@ -298,7 +335,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
             } catch (error) {
                 toast.error("Error al cargar registros en tabla.")
-                console.log(error)  
+                
 
             }
 
@@ -331,7 +368,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
             
         } catch (error) {
             toast.error("Error al cargar registros en tabla.")
-            console.log(error)
+            
         }
 
     }
@@ -341,7 +378,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
         const name = e.target.name;
         const value = e.target.value;
         const files = e.target.files;
-
+        
         let params = { name, value, files, hasEndDate : false, hasStartDate : false, endDateObj : null, startDateObj : null };
 
         if ( e.target.name === 'Cliente' ) {
@@ -355,6 +392,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 openModalEntregas(); 
                 return;
             }
+
+            if ( isImportExcelActive ) setIsImportExcelActive( false );
 
             getOrdenesDeCompraByCliente( Nombre_cliente, Ubicacion, numeroCliente );
             setVINSGeneratedinBD(false);
@@ -378,21 +417,22 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
        
         if ( e.target.name === 'EstatusTyT' ) {
             
+            params = await getParams( writtendata.EstatusTyT, e.target.value );
             /* anteriorvalor  FechaSalida */
-            if ( isEstatusTyTOnList(writtendata.EstatusTyT) ) {
+            // if ( isEstatusTyTOnList(writtendata.EstatusTyT) ) { /* Estatus TyT en el que se encuentra actualmente el VIN */
                 
-                params.endDateObj = await searchDateEstatusTyT( writtendata.EstatusTyT.split('|').shift(), 'salida' );
-                if ( params.endDateObj.date !== null ) params.hasEndDate = true;
+            //     params.endDateObj = await searchDateEstatusTyT( writtendata.EstatusTyT.split('|').shift(), 'salida' );
+            //     if ( params.endDateObj.date !== null ) params.hasEndDate = true;
                 
-            }
+            // }
             
             /* nuevovalor FechaIngreso */
-            if ( isEstatusTyTOnList(e.target.value) ) {
+            // if ( isEstatusTyTOnList(e.target.value) ) { /* Estatus TyT al que pasará el VIN */
 
-                params.startDateObj = await searchDateEstatusTyT( e.target.value.split('|').shift(), 'ingreso' );
-                if ( params.startDateObj.date !== null ) params.hasStartDate = true;
+            //     params.startDateObj = await searchDateEstatusTyT( e.target.value.split('|').shift(), 'ingreso' );
+            //     if ( params.startDateObj.date !== null ) params.hasStartDate = true;
 
-            }
+            // }
            
         }
 
@@ -438,7 +478,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
     }
 
     const handleAfterStatusCreated = () => {
-        getStatusTyTList();
+        getStatusTyTAndPatiosList();
         closeModal();
     }
 
@@ -475,12 +515,17 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
         let getStatusTyTOfList = ''; 
         let varEstatusTyTAux = '';
+        let getPatioOfList = ''; 
+        let PatioAux = '';
 
 
         if ( checked ) {
 
             varEstatusTyTAux = registro.EstatusTyT == 0 ? 'EN PATIO' : registro.EstatusTyT;
             getStatusTyTOfList = statusTytCatList.find( sts => sts.nombreEstatus === varEstatusTyTAux.split('|').shift());
+            
+            PatioAux = registro.Patio;
+            getPatioOfList = patiosUbiCatList.find( sts => sts.nombrePatio === PatioAux.split('|').shift());
 
         }
 
@@ -492,6 +537,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 ...row, 
                 isVinSelected  : checked,
                 EstatusTyT     : checked ? varEstatusTyTAux === 'EN PATIO' ? 0 : `${getStatusTyTOfList.nombreEstatus}|${getStatusTyTOfList.clave}` : row.EstatusTyT,
+                Patio          : checked ? `${getPatioOfList.nombrePatio}|${getPatioOfList.clave}` : row.Patio,
                 /* NumeroCliente  : !checked ? row.NumeroCliente : writtendata.NumeroCliente,  */
                 FechaSiniestro : dateSin,
                 pasoASiniestro : (radioButton === Modificar && dateSin !== 'cancel' && dateSin !== '') ? true : false
@@ -539,6 +585,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
     }
 
     const updateValuesVINSEditMode = async ( params ) => {
+        
         const { name, value, files, hasEndDate, hasStartDate } = params;
 
         if ( VINClientes.find( obj => obj.isVinSelected ) === undefined ) return true; /* no hay VINS seleccionados.  */
@@ -670,7 +717,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 FechaSolicitudGPS, //Fecha Segregación 
                 FechaAceptacionGPS, //Fecha Instalación
                 EstatusPrevia, 
-                EstatusTyT, 
+                EstatusTyT,
+                Patio, /* new property added */ 
                 FechaEntregaCliente, 
                 FechaDeEnvioDocum, 
                 FechaDeRecepcion,
@@ -724,7 +772,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                     FechaTransitoSalida, CiudadDestino, OrdenDeCompra    
                 }
 
-                if ( compareEqualityValues( object ) ){ }
+                if ( compareEqualityValues( object ) ){ }//Patio
 
                 else {
                     toast.info("VIN con valores distintos a los seleccionados.");
@@ -741,6 +789,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
                 const getStatusTyTOfList = statusTytCatList.find( sts => sts.nombreEstatus === EstatusTyT.split('|').shift())
 
+                const getStatusPatioOfList = patiosUbiCatList.find( sts => sts.nombrePatio === Patio.split('|').shift())
+
                 setWrittendata({ 
                     ...writtendata,
                     EstatusGPS          : EstatusGPS,
@@ -748,6 +798,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                     FechaAceptacionGPS  : FechaAceptacionGPS.substring(0,10) === defaultDateDB ? defaultDate : FechaAceptacionGPS.substring(0,10),
                     EstatusPrevia       : EstatusPrevia,
                     EstatusTyT          : `${getStatusTyTOfList.nombreEstatus}|${getStatusTyTOfList.clave}`,
+                    Patio               : `${getStatusPatioOfList.nombrePatio}|${getStatusPatioOfList.clave}`,
                     FechaEntregaCliente : FechaEntregaCliente.substring(0,10) === defaultDateDB ? defaultDate : FechaEntregaCliente.substring(0,10),
                     FechaDeEnvioDocum   : FechaDeEnvioDocum.substring(0,10) === defaultDateDB ? defaultDate : FechaDeEnvioDocum.substring(0,10),
                     FechaDeRecepcion    : FechaDeRecepcion.substring(0,10) === defaultDateDB ? defaultDate : FechaDeRecepcion.substring(0,10),
@@ -791,7 +842,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                     selectEstatusGPSRef.current.value     = EstatusGPS;
                     selectEstatusPreviaRef.current.value  = EstatusPrevia;
                     selectEstatusTyTRef.current.value     = `${getStatusTyTOfList.nombreEstatus}|${getStatusTyTOfList.clave}`;
-                    
+                    selectPatioUbiRef.current.value       = `${getStatusPatioOfList.nombrePatio}|${getStatusPatioOfList.clave}`
+                  
                 }
                 
                 if ( sliceSelected === third ) selectPagoRef.current.value = Pago;
@@ -878,16 +930,18 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
         return status.toString().split("|").shift();
     
     }
+
+    const validPatio = ( patio ) => {
+        
+        return patio.toString().split("|").shift();
+
+    }
    
     const pipesStatusPrevia = ( statusPrevia ) => {
         /* nota: No aplica = Patio, OK = Distribuidor */
         if ( statusPrevia === defaultEstatusPrevia )  return PATIO
         if ( statusPrevia === OK )  return DISTRIBUIDOR
         if ( statusPrevia === SINPREVIA )  return SINPREVIA
-    }
-
-    const validateDate = ( date ) => {
-        return date.substring(0,10) == defaultDateDB ? '' : date.substring(0,10);  
     }
 
     const handleCheckLlaveAll = ({ target }) => {
@@ -988,6 +1042,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 getVinsWithOrdenDeCompra( writtendata.NumeroCliente, OrdenCompra );
                 setRadioButton(e.target.value);
                 setDafaultInputValues();
+
+                if ( isImportExcelActive ) setIsImportExcelActive( false );
             }
             })
 
@@ -1058,6 +1114,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
             EstatusGPS          : defaultEstatusGPS,
             EstatusPrevia       : defaultEstatusPrevia,
             EstatusTyT          : PATIOSTATUSTYT,
+            Patio               : UBICACIONPATIO,
             FechaEntregaCliente : defaultDate,
             FechaDeEnvioDocum   : defaultDate,
             FechaDeRecepcion    : defaultDate,
@@ -1104,6 +1161,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
             selectEstatusGPSRef.current.value  = defaultEstatusGPS;
             selectEstatusPreviaRef.current.value  = defaultEstatusPrevia;
             selectEstatusTyTRef.current.value = PATIOSTATUSTYT;
+            selectPatioUbiRef.current.value = UBICACIONPATIO;
 
         }
         
@@ -1185,12 +1243,13 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
             const updateVINS = VINClientes.map((row) => {
 
                 let { 
-                    EstatusTyT, EstatusGPS, EstatusPrevia, FechaSolicitudGPS, FechaAceptacionGPS, FechaEntregaCliente, FechaDeEnvioDocum, FechaDeRecepcion,
+                    EstatusTyT, Patio, EstatusGPS, EstatusPrevia, FechaSolicitudGPS, FechaAceptacionGPS, FechaEntregaCliente, FechaDeEnvioDocum, FechaDeRecepcion,
                     Pago, FechaDetencionSolicit, FechaDetencionAut, FechaSegregacionAut, FechaPreviaSolicit, FechaPreviaAut, FechaGPSSolicit, FechaGPSAut,
                     FechaAccesoSolicit, FechaAccesoAut, FechaLiberacionSolicit, FechaLiberacionAut, FechaCalidadSolicit, FechaCalidadAut, FechaPagoSolicit, 
                     FechaPagoAut, CiudadDestino, OrdenDeCompra 
                 } = row;
 
+                
                 let varEstatusTyTAux = EstatusTyT == 0 ? 'EN PATIO' : EstatusTyT;
                 
                 if ( EstatusGPS == '' ) EstatusGPS = defaultEstatusGPS;
@@ -1204,14 +1263,33 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                     FechaLiberacionSolicit, FechaLiberacionAut, FechaCalidadSolicit, FechaCalidadAut, FechaPagoSolicit, FechaPagoAut, CiudadDestino, OrdenDeCompra    
                 }
 
+                /* Modo importación excel - no validar coincidencias OC, dest, estatus */
+                if ( 
+                    isImportExcelActive && 
+                    writtendata.NombreCliente === pendientesEntrega[0].Nombre_corto &&
+                    !checked &&
+                    row.EstadoSiniestro !== 1 && 
+                    row.EstadoSiniestro !== 2 && 
+                    !row.pasoASiniestro 
+                    ) {
+
+                    return {
+                        ...row,
+                        isVinSelected: checked
+                    }
+
+                }
+
                 if ( compareEqualityValues( object ) && row.EstadoSiniestro !== 1 && row.EstadoSiniestro !== 2 && !row.pasoASiniestro ) { /* EstadoSiniestro 1 : en revision, EstadoSiniestro 2 : En proceso */
 
                     const getStatusTyTOfList = statusTytCatList.find( sts => sts.nombreEstatus === varEstatusTyTAux.split('|').shift());
+                    const getPatioOfList = patiosUbiCatList.find( sts => sts.nombrePatio === Patio.split('|').shift());
 
                     return { 
                         ...row, 
                         isVinSelected  : checked,
-                        EstatusTyT     : varEstatusTyTAux === 'EN PATIO' ? 0 : `${getStatusTyTOfList.nombreEstatus}|${getStatusTyTOfList.clave}`, 
+                        EstatusTyT     : varEstatusTyTAux === 'EN PATIO' ? 0 : `${getStatusTyTOfList.nombreEstatus}|${getStatusTyTOfList.clave}`,
+                        Patio          : `${getPatioOfList.nombrePatio}|${getPatioOfList.clave}`, //getPatioOfList, 
                         pasoASiniestro : ( selectSinisters ) ? true : false,
                         FechaSiniestro : ( selectSinisters ) ? sinisterDate : '',
                         // NumeroCliente  : !checked ? row.NumeroCliente : writtendata.NumeroCliente,
@@ -1239,7 +1317,10 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 setVINClientesGenerados(filterVINSSinister);
                 setCheckAll( checked );
 
+                if( isImportExcelActive ) setIsImportExcelActive( false );
+
             }
+
             
         }
     }
@@ -1322,6 +1403,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
     }
 
     const searchDateEstatusTyT = async ( estatusValue, dateType ) => {
+    
+        /* TODO: recibir un parámetro adicional para tomar la fecha en automático */ //ya obtenemos la fecha en automático
 
         let ingreso = 'ingreso';
         let response = { dateName : '', date : null };
@@ -1426,7 +1509,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
         } catch (error) {
             toast.error("Error al cargar registros en tabla.")
-            console.log(error)
+            
         }
 
 
@@ -1467,17 +1550,18 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
             EstatusGPS            : !checked ? row.EstatusGPS            : writtendata.EstatusGPS, 
             EstatusPrevia         : !checked ? row.EstatusPrevia         : writtendata.EstatusPrevia, 
             EstatusTyT            : !checked ? row.EstatusTyT            : writtendata.EstatusTyT, 
+            /* new property Patio*/
+            Patio                 : !checked ? row.Patio                 : writtendata.Patio, 
             FechaAceptacionGPS    : !checked ? row.FechaAceptacionGPS    : writtendata.FechaAceptacionGPS,
             FechaDeEnvioDocum     : !checked ? row.FechaDeEnvioDocum     : writtendata.FechaDeEnvioDocum,
             FechaDeRecepcion      : !checked ? row.FechaDeRecepcion      : writtendata.FechaDeRecepcion,
             FechaEntregaCliente   : !checked ? row.FechaEntregaCliente   : writtendata.FechaEntregaCliente,
             isVinSelected         :  checked,
-            /* NombreCliente         : !checked ? row.NombreCliente         : writtendata.NombreCliente,   //--------
-            NumeroCliente         : !checked ? row.NumeroCliente         : writtendata.NumeroCliente,   //-------- */
+            
             Observaciones         : !checked ? row.Observaciones         : writtendata.Observaciones,
             ObservacionesTyT      : !checked ? row.ObservacionesTyT      : writtendata.ObservacionesTyT,
             ObservacionesVIN      : !checked ? row.ObservacionesVIN      : writtendata.ObservacionesVIN,
-            /* Ubicacion             : !checked ? row.Ubicacion             : writtendata.Ubicacion,       //-------- */
+            
             FechaSiniestro        : !checked ? row.FechaSiniestro        : dateSin, 
             FechaDetencionSolicit : !checked ? row.FechaDetencionSolicit : writtendata.FechaDetencionSolicit,
             FechaDetencionAut     : !checked ? row.FechaDetencionAut     : writtendata.FechaDetencionAut,
@@ -1896,7 +1980,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
     const updateDatesTyTList = ( params ) => {
 
-        const { name, value, hasEndDate,hasStartDate, endDateObj, startDateObj } = params;
+        const { name, value, hasEndDate, hasStartDate, endDateObj, startDateObj } = params;
         let updateVINSCliente = [];
         let updateVINSClienteGenerados = [];
 
@@ -1904,7 +1988,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
             updateVINSCliente = VINClientes.map((row) => {
 
-                if ( row.isVinSelected && row.EstadoSiniestro !== 1 && row.EstadoSiniestro !== 2 && !row.pasoASiniestro) {
+                if ( row.isVinSelected && row.EstadoSiniestro !== 1 && row.EstadoSiniestro !== 2 && !row.pasoASiniestro) { /* esta validación no se ocupará modificar. */
 
                     return helperDatesTyT( name, value,  endDateObj, startDateObj, row, 'both' );
 
@@ -1979,7 +2063,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
         
     }
 
-    const helperDatesTyT = ( name, value,  endDateObj, startDateObj, row, espDate ) => {
+    const helperDatesTyT = ( name, value,  endDateObj, startDateObj, row, espDate ) => { /* values of espDate: 'both', 'start', 'end' */
 
         switch ( espDate ) { 
             case 'both':
@@ -2000,8 +2084,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
                     return {
                         ...row,
-                        /* NombreCliente           : writtendata.NombreCliente,
-                        NumeroCliente           : writtendata.NumeroCliente, */
                         [name]         : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2014,8 +2096,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
                     return {
                         ...row,
-                        /* NombreCliente           : writtendata.NombreCliente,
-                        NumeroCliente           : writtendata.NumeroCliente, */
                         [name]         : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2031,8 +2111,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
                     return {
                         ...row,
-                        /* NombreCliente           : writtendata.NombreCliente,
-                        NumeroCliente           : writtendata.NumeroCliente, */
                         [name]         : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2050,8 +2128,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                    
                     return {
                         ...row,
-                        /* NombreCliente           : writtendata.NombreCliente,
-                        NumeroCliente           : writtendata.NumeroCliente, */
                         [name]         : value,
                         [endDateObj.dateName]      : endDateObj.date   !== null ? endDateObj.date   : row[endDateObj.dateName], //FechaTransitoSalida
                         [startDateObj.dateName]    : startDateObj.date !== null ? startDateObj.date : row[startDateObj.dateName], //any?    
@@ -2066,8 +2142,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
                     return {
                         ...row,
-                        /* NombreCliente          : writtendata.NombreCliente,
-                        NumeroCliente          : writtendata.NumeroCliente, */
                         [name]        : value,
                         [startDateObj.dateName]: startDateObj.date !== null ? startDateObj.date : row[startDateObj.dateName],  //FechaInterplantaIngreso
                     }
@@ -2077,8 +2151,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( startDateObj.dateName === estatusKeysTyTList.FechaArmViajeIngreso ) {
                     return {
                         ...row,
-                        /* NombreCliente          : writtendata.NombreCliente,
-                        NumeroCliente          : writtendata.NumeroCliente, */
                         [name]        : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2089,8 +2161,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( startDateObj.dateName === estatusKeysTyTList.FechaAsigSinMadrinaIngreso ) {
                     return {
                         ...row,
-                        /* NombreCliente          : writtendata.NombreCliente,
-                        NumeroCliente          : writtendata.NumeroCliente, */
                         [name]        : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2103,8 +2173,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( startDateObj.dateName === estatusKeysTyTList.FechaAsigEnMadrinaIngreso ) {
                     return {
                         ...row,
-                        /* NombreCliente          : writtendata.NombreCliente,
-                        NumeroCliente          : writtendata.NumeroCliente, */
                         [name]        : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2119,8 +2187,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( startDateObj.dateName === estatusKeysTyTList.FechaTransitoIngreso ) {
                     return {
                         ...row,
-                        /* NombreCliente          : writtendata.NombreCliente,
-                        NumeroCliente          : writtendata.NumeroCliente, */
                         [name]        : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDateDB ? startDateObj.date !== null ? startDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2139,8 +2205,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( endDateObj.dateName === estatusKeysTyTList.FechaInterplantaSalida ) {
                     return {
                         ...row,
-                        /* NombreCliente           : writtendata.NombreCliente,
-                        NumeroCliente           : writtendata.NumeroCliente, */
                         [name]         : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         [endDateObj.dateName]   : endDateObj.date   !== null ? endDateObj.date   : row[endDateObj.dateName], //FechaInterplantaSalida
@@ -2150,8 +2214,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( endDateObj.dateName === estatusKeysTyTList.FechaArmViajeSalida ) {
                     return {
                         ...row,
-                        /* NombreCliente          : writtendata.NombreCliente,
-                        NumeroCliente          : writtendata.NumeroCliente, */
                         [name]         : value,
                         FechaInterplantaIngreso : reduceString(row.FechaInterplantaIngreso) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida  : reduceString(row.FechaInterplantaSalida) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2163,8 +2225,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( endDateObj.dateName === estatusKeysTyTList.FechaAsigSinMadrinaSalida ) {
                     return {
                         ...row,
-                        /* NombreCliente   : writtendata.NombreCliente,
-                        NumeroCliente   : writtendata.NumeroCliente, */
                         [name]           : value,
                         FechaInterplantaIngreso   : reduceString(row.FechaInterplantaIngreso) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida    : reduceString(row.FechaInterplantaSalida) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2178,8 +2238,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( endDateObj.dateName === estatusKeysTyTList.FechaAsigEnMadrinaSalida ) {
                     return {
                         ...row,
-                        /* NombreCliente              : writtendata.NombreCliente,
-                        NumeroCliente              : writtendata.NumeroCliente, */
                         [name]                     : value,
                         FechaInterplantaIngreso    : reduceString(row.FechaInterplantaIngreso) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida     : reduceString(row.FechaInterplantaSalida) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2195,8 +2253,6 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                 if ( endDateObj.dateName === estatusKeysTyTList.FechaTransitoSalida ) {
                     return {
                         ...row,
-                        /* NombreCliente              : writtendata.NombreCliente,
-                        NumeroCliente              : writtendata.NumeroCliente, */
                         [name]                     : value,
                         FechaInterplantaIngreso    : reduceString(row.FechaInterplantaIngreso) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaIngreso : row.FechaInterplantaIngreso,
                         FechaInterplantaSalida     : reduceString(row.FechaInterplantaSalida) === defaultDate ? endDateObj.date !== null ? endDateObj.date : row.FechaInterplantaSalida : row.FechaInterplantaSalida,
@@ -2214,6 +2270,269 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
             /* default:
                 return { ...row } */
         }
+
+    }
+
+    const fileChange = (e) => {
+
+        const fileDom = e.target || e.srcElement;
+        const excelIO = new IO();
+        
+        if ( fileDom.files[0]?.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ) { /* extensionExcel .xlsx */
+
+            toast.info('Formato no válido, favor de verificar formato (.xlxs)')
+            return;
+
+        }
+        
+        readXlsxFile(fileDom.files[0]).then((rows) => {  /* new library */
+            
+            getDataFromExcelFile( rows );
+        })
+
+        /* excelIO.open(fileDom.files[0], (data) => { //esta librería no funcionó estando en producción  
+
+            const dataExcel = data?.sheets?.rsVINMasivo?.data?.dataTable
+
+            if ( dataExcel === undefined ) {
+                toast.info('El archivo importado no coincide con la información para realizar la actualización');
+                return;
+            }
+
+            getDataFromExcel( dataExcel );
+
+        }); */
+
+    }
+
+    const getDataFromExcelFile = ( rowsExcel ) => {
+        
+        let finalList = [];
+
+        for (const list of rowsExcel) {
+            
+            const [ Cliente, VIN, col1, col2, NDist, Dist, Destino, Mod, Marca, Flot, Color,  col3, Year, FVenta, Planta, EstatusPedido, Ubicacion, FEntreg ] = list;
+            
+            if ( Cliente !== null && VIN !== null ) {
+
+                let objectProperties = {
+                    Cliente,
+                    VIN,
+                    EstatusPedido,
+                    Ubicacion
+                }
+
+                finalList = [...finalList, objectProperties];
+            }
+
+        }
+
+        updateVINSFromExcelData( finalList );
+    }
+
+    const getDataFromExcel = ( dataExcel ) => {
+
+        /* let list = [];
+        let finalList = [];
+        let Cliente = '';
+        let VIN = '';
+        let EstatusPedido = '';
+        let Ubicacion = '';
+
+        for (const obj of Object.keys( dataExcel )) {
+
+            if ( 
+                obj !== '1' && 
+                obj !== '2' && 
+                obj !== '3' && 
+                obj !== '4' && 
+                obj !== '5' && 
+                obj !== '6' && 
+                obj !== '7'
+                ) {
+
+                list = [ ...list, dataExcel[obj] ]
+
+            }
+        }
+
+        for (const obj of list) {
+
+            for (const key of Object.keys( obj )) {
+
+                if ( key === '0' ) {
+                    Cliente = obj[key].value;
+                }
+                if ( key === '1' ) {
+                    VIN = obj[key].value;
+                }
+                if ( key === '15' ) {
+                    EstatusPedido = obj[key].value;
+                }
+                if ( key === '16' ) {
+                    Ubicacion = obj[key].value;
+                    finalList = [ 
+                        ...finalList,
+                        {
+                            Cliente,
+                            VIN,
+                            EstatusPedido,
+                            Ubicacion,
+                        }  
+                    ]
+                }
+
+            }
+
+        }
+
+        
+
+        updateVINSFromExcelData( finalList ); */
+    }
+
+    const updateVINSFromExcelData =  async ( excelData ) => {
+        
+        let params = {};
+        // let params = { name:'EstatusTyT', value: finalEstatusTyT, hasEndDate: false, hasStartDate: false, endDateObj: null, startDateObj: null };
+
+        const updateVINS = await Promise.all(
+            VINClientes.map( async objCli => {
+
+                let objInExcelData = excelData.find( objExc => (objExc.VIN === objCli.VIN) && (objExc.Cliente === objCli.NumeroCliente) );
+
+                if ( objInExcelData !== undefined && objCli.EstadoSiniestro !== 1 && objCli.EstadoSiniestro !== 2 && !objCli.pasoASiniestro ) { /* objeto encontrado y el VIN no se encuentra en Siniestro */
+
+                    let finalEstatusTyT = '';
+                    let finalPatio = '';
+                    let isEstatusChanged = false;
+                    
+                    finalEstatusTyT = EstatusTyTvalidations( objInExcelData.EstatusPedido, objCli.Agencia );
+                    
+                    isEstatusChanged = (finalEstatusTyT !== objCli.EstatusTyT) //? true : false;
+
+                    finalEstatusTyT = getClaveEstatusTyT( finalEstatusTyT );
+                    
+                    finalPatio = PatioUbiValidations( objInExcelData.Ubicacion );
+                    
+                    finalPatio = getClavePatios( finalPatio );
+                    
+                    if ( (isEstatusTyTOnList( objCli.EstatusTyT == 0 ? 'EN PATIO' : objCli.EstatusTyT ) || isEstatusTyTOnList( finalEstatusTyT )) && isEstatusChanged ) {
+                        
+                        params = await getParams( objCli.EstatusTyT == 0 ? 'EN PATIO' : objCli.EstatusTyT, finalEstatusTyT );
+
+                        let newObj = getTotalDates( params, objCli );
+                        
+                        return {
+                            ...newObj,
+                            isVinSelected  : true,
+                            EstatusTyT     : finalEstatusTyT !== '' ? finalEstatusTyT : objCli.EstatusTyT,
+                            Patio          : finalPatio      !== '' ? finalPatio      : objCli.Patio
+                        }
+                    }
+
+                    return {
+                        ...objCli,
+                        isVinSelected  : true,
+                        EstatusTyT     : finalEstatusTyT !== '' ? finalEstatusTyT : objCli.EstatusTyT,
+                        Patio          : finalPatio      !== '' ? finalPatio      : objCli.Patio
+                    }
+                }
+
+                return objCli;
+
+            })
+        )
+
+        toast.success("El archivo Excel ha sido importado exitosamente.");
+        inputFileImportExcel.current.value   = null;
+        setIsImportExcelActive( true );
+
+        const totalVINSGenerated = updateVINS.filter( obj => obj.isVinSelected );
+
+        if ( totalVINSGenerated.length > 0 ) setVINSGeneratedinBD(false);
+
+        setVINClientes( updateVINS );
+        setVINClientesGenerados( totalVINSGenerated );
+
+    }
+
+    const getTotalDates = ( params, row ) => {
+        const { name, value, hasEndDate, hasStartDate, endDateObj, startDateObj } = params;
+
+        //both
+        if ( hasEndDate && hasStartDate ) {
+            
+            return helperDatesTyT( name, value,  endDateObj, startDateObj, row, 'both' );
+        }
+        
+        //start
+        if ( hasStartDate ) {
+            
+            return helperDatesTyT( name, value,  endDateObj, startDateObj, row, 'start' );
+        }
+        
+        //end
+        if ( hasEndDate ) {
+            
+            return helperDatesTyT( name, value,  endDateObj, startDateObj, row, 'end' );
+        }
+        
+    }
+
+    const getParams = async ( currentStatusTyT, nextStatusTyT ) => {
+
+        let params = { name:'EstatusTyT', value: nextStatusTyT, hasEndDate: false, hasStartDate: false, endDateObj: null, startDateObj: null };
+
+        /* anteriorvalor  FechaSalida */
+        if ( isEstatusTyTOnList(currentStatusTyT) ) { /* Estatus TyT en el que se encuentra actualmente el VIN */
+                
+            params.endDateObj = await searchDateEstatusTyT( currentStatusTyT.split('|').shift(), 'salida' );
+            if ( params.endDateObj.date !== null ) params.hasEndDate = true;
+            
+        }
+    
+        /* nuevovalor FechaIngreso */
+        if ( isEstatusTyTOnList(nextStatusTyT) ) { /* Estatus TyT al que pasará el VIN */
+
+            params.startDateObj = await searchDateEstatusTyT( nextStatusTyT.split('|').shift(), 'ingreso' );
+            if ( params.startDateObj.date !== null ) params.hasStartDate = true;
+
+        }
+
+        return params;
+
+    }
+
+    const getClaveEstatusTyT = ( finalEstatusTyT ) => {
+
+        let estatusClave = '';
+
+        let estatustyt = statusTytCatList.find( stat => stat.nombreEstatus === finalEstatusTyT );
+
+        if ( estatustyt !== undefined ) {
+
+            estatusClave = `${estatustyt.nombreEstatus}|${estatustyt.clave}`;
+            
+        }
+
+        return estatusClave;
+
+    }
+
+    const getClavePatios = ( finalPatio ) => {
+        
+        let patioClave = '';
+
+        let patio = patiosUbiCatList.find( pat => pat.nombrePatio === finalPatio );
+
+        if ( patio !== undefined ) {
+
+            patioClave = `${patio.nombrePatio}|${patio.clave}`;
+
+        }
+
+        return patioClave;
 
     }
 
@@ -2431,9 +2750,38 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
                         <div className="col-6">
                             
-                                <div className="row d-flex justify-content-around pl-2 pr-4">
-                                    <h6 style={{ visibility:'hidden' }}>tagComodin</h6>
-                                </div>
+                            <div className="row d-flex justify-content-start align-items-center pl-2 pr-4">
+                                
+                                <h6 className='mr-4 width__label-input-min'>Ubicación: </h6>
+
+                                <div className='d-flex justify-content-between width__label-input'>
+                                
+                                    <select 
+                                        className='form-select select-class-1 mt-2' 
+                                        disabled={ isPreviewTable }
+                                        name='Patio' 
+                                        onChange={OnChange}
+                                        ref={selectPatioUbiRef}
+                                        style={{width:'70%', marginRight:'px'}}
+                                        tabIndex={7}
+                                    >
+                                        {
+                                            patiosUbiCatList
+                                            .map((status) => {
+                                                return (
+                                                <option
+                                                    value={`${status.nombrePatio}|${status.clave}`} 
+                                                >
+                                                    { status.nombrePatio }
+                                                </option>
+                                                )
+                                            })
+                                        }
+                                    </select>
+
+                                </div>   
+
+                            </div>
 
                         </div>
 
@@ -3157,14 +3505,51 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
 
                 </div>
 
-                <button 
-                    className='btn btn-info mt-2 mb-2' 
-                    disabled={VINClientesGenerados.length === 0 || isChargingVins}
-                    onClick={onGenerateTable}
-                    type='button' 
-                >
-                    { isPreviewTable ? 'Regresar' : 'Vista Previa'}
-                </button>
+                <div>
+
+                
+
+                    {/* test input  */}
+                    {
+                        (
+                            writtendata.NombreCliente === pendientesEntrega[0].Nombre_corto && radioButton === Modificar
+                        ) &&
+                        <>
+                            <input
+                                accept='.xlsx' 
+                                type="file" 
+                                className="fileSelect" 
+                                onChange={(e) => fileChange(e)}
+                                id="raised-button-file"
+                                ref={ inputFileImportExcel }
+                                style={{ display: 'none' }}
+                                disabled={ isPreviewTable }
+                            />
+                            <label htmlFor="raised-button-file">
+                                <Button 
+                                    variant="outlined" 
+                                    component="span" 
+                                    color='success'
+                                    disabled={ isPreviewTable }
+                                >
+                                    <FontAwesomeIcon icon={faFileExcel} />
+                                    <small className='ml-2'>Importar Excel</small>
+                                </Button>
+                            </label> 
+                        </>
+                    }
+
+                    <button 
+                        className='btn btn-info mb- ml-2' 
+                        disabled={VINClientesGenerados.length === 0 || isChargingVins}
+                        onClick={onGenerateTable}
+                        type='button' 
+                    >
+                        { isPreviewTable ? 'Regresar' : 'Vista Previa'}
+                    </button>
+
+
+                </div>
 
             </div>
 
@@ -3177,6 +3562,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                         </div>
                     </div>
                 }
+
+                
 
                 {/* Renderización Tabla */}                        
                 {
@@ -3199,7 +3586,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                                     <th colSpan='16' className='text-center divider__border-right'>GENERALES</th>
                                     <th colSpan='19' className='text-center divider__border-right'>GM</th>
                                     <th colSpan='4' className='text-center divider__border-right'>GMF</th>
-                                    <th colSpan='14' className='text-center divider__border-right'>TYT</th>
+                                    <th colSpan='15' className='text-center divider__border-right'>TYT</th>{/* 14 */}
                                     <th colSpan='1' className='text-center divider__border-right'>GMF</th>
                                     <th colSpan='5' className='text-center divider__border-right'>PREVIA ENTREGA DISTRIB.</th>
                                     <th colSpan='4' className='text-center divider__border-right'>DOCUMENTOS DE ENTREGA</th>
@@ -3274,7 +3661,7 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                                     <th colSpan="1" className='text-center divider__border-right'>TIEMPO</th>
                                     <th colSpan="2" className='text-center divider__border-right'>DPP</th>
                                     <th colSpan="2" className='text-center divider__border-right'>PERMISO</th>
-                                    <th colSpan="3" className='text-center divider__border-right'></th>
+                                    <th colSpan="4" className='text-center divider__border-right'></th>     {/* 3 */}
                                     <th colSpan="2" className='text-center divider__border-right'>INTERPLANTA</th>
                                     <th colSpan="2" className='text-center divider__border-right'>ARMADO DE VIAJE</th>
                                     <th colSpan="2" className='text-center divider__border-right'>ASIG. SIN MADRINA</th>
@@ -3445,6 +3832,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                                     >
                                         Estatus TyT
                                     </th>
+
+                                    <th className='noselect divider__border-right'>Patio</th>
 
                                     <th className='noselect divider__border-right'>Observaciones TyT</th>
 
@@ -3675,6 +4064,8 @@ const AsignarVinsEstatusGPS = ({ agencia, clientes }) => {
                                                 >
                                                     { upperCase( validDefaultStatusTyT(registro.EstatusTyT) ) }
                                                 </td>
+
+                                                <td className='noselect'>{ upperCase( validPatio(registro.Patio) )}</td> {/* aplicar validación */}
 
                                                 <td className='noselect'>{ upperCase( registro.ObservacionesTyT ) }</td>
 

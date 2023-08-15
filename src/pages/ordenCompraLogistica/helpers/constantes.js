@@ -8,6 +8,7 @@ export const PATIOSTATUSTYT = 'EN PATIO|1';
 export const PATIO = 'REALIZADO EN PATIO';
 export const DISTRIBUIDOR = 'REALIZADO EN DISTRIBUIDOR';
 export const SINPREVIA = 'SIN PREVIA';
+export const UBICACIONPATIO = 'PATIO|1';
 export const emptyString = '';
 export const CartaCliente = 'CartaCliente';
 export const ReciboEntrega = 'ReciboEntrega';
@@ -218,6 +219,80 @@ export const stylesObjects = {
 
 }
 
+const ESTATUS_DICTIONARY = {
+    'ASIGNADO SIN MADRINA'                   : 'ASIGNADO SIN MADRINA',
+    'EN ALMACEN, DISPONIBLE PARA LIBERAR'    : 'ARMANDO VIAJE',//'ARMADO DE VIAJE',
+    'ACCESORIZACION'                         : 'ARMANDO VIAJE',//'ARMADO DE VIAJE',
+    'SÓLO VENTA, NO DISPONIBLE'              : 'NO DISPONIBLE PARA TYT',
+    'ASIGNADO EN MADRINA NO'                 : 'ENTREGADO EN AGENCIA',
+    'UNIDAD ENTREGADA'                       : 'ENTREGADO/ENTREGADO EN AGENCIA',
+    'EN AREA DE CONSOLIDACION, POR EMBARCAR' : 'ARMANDO VIAJE',//'ARMADO DE VIAJE',
+    'EN TRANSITO'                            : 'EN TRANSITO',
+    'EN TRÁNSITO'                            : 'EN TRANSITO',
+    'ASIGNADO EN MADRINA'                    : 'ASIGNADO EN MADRINA',
+    'DISPONIBLE PARA EMBARQUE'               : 'ARMANDO VIAJE'
+    // 'SINIESTRO' : 'SE AGREGA MANUAL',
+}
+
+const PATIOS_DICTIONARY = {
+    'PATIO TYT ALMACEN QUERETARO'   : 'PATIO',
+    'PATIO TYT QUERETARO'           : 'PATIO',
+    'PATIO TYT SOYANIQUILPAN'       : 'PATIO TYT SOYANIQUILPAN',
+    'VDC QUERETARO'                 : 'DETENIDO EN GM',
+    'VDC RAMOS'                     : 'PATIO RAMOS ARIZPE',
+    'INTERPLANTA RAMOS'             : 'PATIO RAMOS ARIZPE',
+    'VDC SAN LUIS'                  : 'PATIO SAN LUIS',
+    'SILAO'                         : 'PATIO SILAO',
+    'CONSOL. EN TYT RAMOS ARIZPE'   : 'PATIO RAMOS ARIZPE',
+    'PATIO TYT RAMOS ARIZPE'        : 'PATIO RAMOS ARIZPE',
+    'CONSOL. EN TYT SILAO'          : 'PATIO SILAO',
+    'PATIO TYT ALMACEN SILAO'       : 'PATIO SILAO',
+    'SU TRANSPORTE RAMOS ARIZPE'    : 'PATIO RAMOS ARIZPE',
+}
+
+const expReg = /ASIGNADO EN MADRINA NO.*/
+
+export const EstatusTyTvalidations = ( estatusPedido, agencia ) => {
+
+    let finalEstatus = '';
+
+    for (const key of Object.keys(ESTATUS_DICTIONARY)) {
+
+        if ( key === 'ASIGNADO EN MADRINA NO' && estatusPedido === key ) {
+            
+             finalEstatus = ( estatusPedido.match( expReg ) ) ? ESTATUS_DICTIONARY[key] : '';
+
+        } else if ( key === 'UNIDAD ENTREGADA' && estatusPedido === key ) {
+
+            finalEstatus =  ( agencia !== '' ) ? ESTATUS_DICTIONARY[key].split('/').pop() : ESTATUS_DICTIONARY[key].split('/').shift();
+
+        } else {
+           
+            finalEstatus = ( key === estatusPedido ) ? ESTATUS_DICTIONARY[key] : finalEstatus;
+
+        }
+    }
+
+    return finalEstatus; //IT CAN BE EMPTY STRING;
+
+}
+
+export const PatioUbiValidations = ( ubicacion ) => {
+
+    let finalPatio = '';
+
+    for (const key of Object.keys(PATIOS_DICTIONARY)) {
+        
+        finalPatio = ( key === ubicacion ) ? PATIOS_DICTIONARY[key] : finalPatio;
+
+        /* if ( key === ubicacion ) {
+            finalPatio = PATIOS_DICTIONARY[key];
+        } */
+
+    }
+
+    return finalPatio;
+}
 
 
 /* {

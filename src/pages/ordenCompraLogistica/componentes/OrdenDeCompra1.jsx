@@ -362,6 +362,7 @@ const OrdenDeCompra1 = ({ agencia }) => {
         await axios.post(url, body, {responseType:'blob'})
         .then(response => {
             const fileUrl = window.URL.createObjectURL(response['data']);
+
             window.open(fileUrl, '_blank');
             /*  
             saveAs(response['data'],"filepdf" + ".pdf") ***imprimir con librería
